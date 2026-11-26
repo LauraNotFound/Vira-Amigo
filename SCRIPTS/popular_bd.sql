@@ -1,11 +1,11 @@
 -- ============================================================================
--- SCRIPT DE POBLACIÓN MASIVA DE DATOS DE TESTE - PROJETO VIRA-AMIGO
--- Genera ~15,000+ registros coherentes cubriendo las 28 tablas y relaciones
+-- SCRIPT DE CARGA MASSIVA DE DADOS DE TESTE - PROJETO VIRA-AMIGO
+-- Gera cerca de 15.000+ registros coerentes, cobrindo as 28 tabelas e relações
 -- ============================================================================
 
 SET search_path TO public;
 
--- Asegura compatibilidad de columnas extendidas en caso de haber usado el DDL inicial
+-- Garante a compatibilidade de colunas estendidas caso o DDL inicial tenha sido usado
 ALTER TABLE RESGATE ADD COLUMN IF NOT EXISTS observacoes TEXT;
 ALTER TABLE REGISTRO_ADOCAO
     ADD COLUMN IF NOT EXISTS desfecho VARCHAR(150),
@@ -18,12 +18,12 @@ ALTER TABLE ATENDIMENTO_CIRURGIA
     ADD COLUMN IF NOT EXISTS situacao VARCHAR(50),
     ADD COLUMN IF NOT EXISTS resultados TEXT;
 
--- (Opcional) Descomenta la siguiente línea si deseas limpiar datos previos antes de poblar:
+-- (Opcional) Descomente a linha seguinte se quiser limpar os dados anteriores antes de popular:
 -- TRUNCATE TABLE PESSOA, DEPARTAMENTO, ABRIGO_PUBLICO, ANIMAL, VACINA, ESTABELECIMENTO_VET, EXAME, CIRURGIA RESTART IDENTITY CASCADE;
 
 DO $$
 DECLARE
-    -- Catálogos de datos realistas
+    -- Catálogos de dados realistas
     v_nomes TEXT[] := ARRAY[
         'Ana', 'Bruno', 'Camila', 'Daniel', 'Eduarda', 'Felipe', 'Gabriela', 'Henrique',
         'Isabela', 'João', 'Larissa', 'Lucas', 'Mariana', 'Mateus', 'Natália', 'Pedro',
@@ -69,7 +69,7 @@ DECLARE
     v_status_denuncia TEXT[] := ARRAY['Aberta', 'Em Análise', 'Em Atendimento', 'Atendida', 'Arquivada'];
     v_canais TEXT[] := ARRAY['Portal Web', 'Telefone 156', 'Aplicativo Móvel', 'Presencial', 'Ouvidoria'];
 
-    -- Variables auxiliares y arreglos de IDs reales
+    -- Variáveis auxiliares e vetores de IDs reais
     i INTEGER;
     j INTEGER;
     v_cpf CHAR(11);
@@ -126,7 +126,7 @@ BEGIN
     SELECT ARRAY_AGG(id_departamento) INTO arr_deptos FROM DEPARTAMENTO;
 
     -- ========================================================================
-    -- 2. PESSOAS (1,500), TELEFONES (~2,250), CIDADAOS (1,350) Y FUNCIONARIOS (150)
+    -- 2. PESSOAS (1.500), TELEFONES (~2.250), CIDADÃOS (1.350) E FUNCIONÁRIOS (150)
     -- ========================================================================
     FOR i IN 1..1500 LOOP
         v_cpf := LPAD((20000000000 + i)::TEXT, 11, '0');
@@ -147,19 +147,19 @@ BEGIN
         )
         ON CONFLICT (CPF) DO NOTHING;
 
-        -- Teléfono principal
+        -- Telefone principal
         INSERT INTO PESSOA_TELEFONE (CPF, telefone)
         VALUES (v_cpf, '119' || LPAD((80000000 + i)::TEXT, 8, '0'))
         ON CONFLICT DO NOTHING;
 
-        -- Segundo teléfono para el 50% de las personas
+        -- Segundo telefone para 50% das pessoas
         IF i % 2 = 0 THEN
             INSERT INTO PESSOA_TELEFONE (CPF, telefone)
             VALUES (v_cpf, '113' || LPAD((2000000 + i)::TEXT, 7, '0'))
             ON CONFLICT DO NOTHING;
         END IF;
 
-        -- Especialización exclusiva: 1..1350 -> CIDADAO | 1351..1500 -> FUNCIONARIO
+        -- Especialização exclusiva: 1..1350 -> CIDADAO | 1351..1500 -> FUNCIONARIO
         IF i <= 1350 THEN
             INSERT INTO CIDADAO (CPF, sexo)
             VALUES (v_cpf, CASE WHEN i % 2 = 0 THEN 'Feminino' ELSE 'Masculino' END)
@@ -175,11 +175,11 @@ BEGIN
             )
             ON CONFLICT (CPF) DO NOTHING;
 
-            -- Subespecialización exclusiva de FUNCIONARIO:
+            -- Subespecialização exclusiva de FUNCIONARIO:
             -- 1351..1395 (45): VETERINARIO
             -- 1396..1440 (45): ANALISTA_ADOCAO
             -- 1441..1485 (45): AGENTE_CAMPO
-            -- 1486..1500 (15): Administrativos generales (especialización parcial)
+            -- 1486..1500 (15): Administrativos gerais (especialização parcial)
             IF i BETWEEN 1351 AND 1395 THEN
                 INSERT INTO VETERINARIO (CPF, CRMV, especialidade)
                 VALUES (
@@ -217,7 +217,7 @@ BEGIN
     SELECT ARRAY_AGG(CPF) INTO arr_agentes FROM AGENTE_CAMPO;
 
     -- ========================================================================
-    -- 3. ABRIGOS PÚBLICOS (12), TELÉFONOS (24) Y CONTRATOS (60)
+    -- 3. ABRIGOS PÚBLICOS (12), TELEFONES (24) E CONTRATOS (60)
     -- ========================================================================
     FOR i IN 1..12 LOOP
         INSERT INTO ABRIGO_PUBLICO (nome, email, orcamento_mensal, nome_diretor, CEP, bairro, cidade, logradouro)
@@ -259,7 +259,7 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 4. FORMULARIOS DE EVALUACIÓN SOCIOECONÓMICA (800 registros)
+    -- 4. FORMULÁRIOS DE AVALIAÇÃO SOCIOECONÔMICA (800 registros)
     -- ========================================================================
     FOR i IN 1..800 LOOP
         v_cpf_cidadao := arr_cidadaos[(i % ARRAY_LENGTH(arr_cidadaos, 1)) + 1];
@@ -277,11 +277,11 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 5. DENUNCIAS (1,200 registros) Y RESCATES (700 registros vinculados 1:1)
+    -- 5. DENÚNCIAS (1.200 registros) E RESGATES (700 registros vinculados 1:1)
     -- ========================================================================
     FOR i IN 1..1200 LOOP
         v_idx := (i % 12) + 1;
-        -- 15% de denuncias anónimas (CPF_cidadao NULL)
+        -- 15% de denúncias anônimas (CPF_cidadao NULL)
         IF i % 7 = 0 THEN
             v_cpf_cidadao := NULL;
         ELSE
@@ -310,7 +310,7 @@ BEGIN
         )
         RETURNING id_denuncia INTO v_id_denuncia;
 
-        -- Los primeros 700 casos generan un RESGATE (cumpliendo data_hora >= denuncia.data_hora)
+        -- Os primeiros 700 casos geram um RESGATE (cumprindo data_hora >= denuncia.data_hora)
         IF i <= 700 THEN
             v_cpf_agente := arr_agentes[(i % ARRAY_LENGTH(arr_agentes, 1)) + 1];
             v_id_abrigo := arr_abrigos[(i % ARRAY_LENGTH(arr_abrigos, 1)) + 1];
@@ -342,12 +342,12 @@ BEGIN
     SELECT ARRAY_AGG(id_resgate) INTO arr_resgates FROM RESGATE;
 
     -- ========================================================================
-    -- 6. ANIMALES (1,000 registros respetando exclusión mutua de guarda)
+    -- 6. ANIMAIS (1.000 registros respeitando a exclusão mútua de guarda)
     -- ========================================================================
     FOR i IN 1..1000 LOOP
         v_data_nasc := DATE '2019-02-01' + ((i * 2) % 2500) * INTERVAL '1 day';
 
-        -- 450 animales adoptados/bajo custodia ciudadana; 500 en abrigos; 50 en tránsito (ambos NULL)
+        -- 450 animais adotados/sob guarda cidadã; 500 em abrigos; 50 em trânsito (ambos NULL)
         IF i <= 450 THEN
             v_cpf_cidadao := arr_cidadaos[(i % ARRAY_LENGTH(arr_cidadaos, 1)) + 1];
             v_id_abrigo := NULL;
@@ -377,7 +377,7 @@ BEGIN
     SELECT ARRAY_AGG(id_animal) INTO arr_animais FROM ANIMAL;
 
     -- ========================================================================
-    -- 7. INTERVENCIONES DE RESCATE (900 registros ternarios)
+    -- 7. INTERVENÇÕES DE RESGATE (900 registros ternários)
     -- ========================================================================
     FOR i IN 1..900 LOOP
         v_id_animal := arr_animais[(i % ARRAY_LENGTH(arr_animais, 1)) + 1];
@@ -403,7 +403,7 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 8. REGISTROS DE ADOPCIÓN (450 registros validando data_adocao >= data_nasc)
+    -- 8. REGISTROS DE ADOÇÃO (450 registros validando data_adocao >= data_nasc)
     -- ========================================================================
     FOR i IN 1..450 LOOP
         v_id_animal := arr_animais[i];
@@ -432,7 +432,7 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 9. VACUNAS (12), ENFERMEDADES OBJETIVO (26) Y APLICACIONES (2,000)
+    -- 9. VACINAS (12), DOENÇAS-ALVO (26) E APLICAÇÕES (2.000)
     -- ========================================================================
     INSERT INTO VACINA (nome, fabricante) VALUES
         ('V10 Polivalente Canina', 'Zoetis'),
@@ -465,7 +465,7 @@ BEGIN
         (arr_vacinas[12], 'Raiva')
     ON CONFLICT DO NOTHING;
 
-    -- 2 vacunas por cada uno de los 1,000 animales = 2,000 aplicaciones válidas
+    -- 2 vacinas para cada um dos 1.000 animais = 2.000 aplicações válidas
     FOR i IN 1..1000 LOOP
         v_id_animal := arr_animais[i];
         SELECT data_nasc INTO v_data_nasc FROM ANIMAL WHERE id_animal = v_id_animal;
@@ -483,7 +483,7 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 10. ESTABLECIMIENTOS VET (15), ATENCIONES MÉDICAS (1,800), EXÁMENES Y CIRUGÍAS
+    -- 10. ESTABELECIMENTOS VET (15), ATENDIMENTOS MÉDICOS (1.800), EXAMES E CIRURGIAS
     -- ========================================================================
     FOR i IN 1..15 LOOP
         v_idx := (i % 12) + 1;
@@ -558,7 +558,7 @@ BEGIN
         )
         RETURNING id_atendimento INTO v_id_atendimento;
 
-        -- Asociar examen clínico a ~1,100 atenciones
+        -- Associar exame clínico a cerca de 1.100 atendimentos
         IF i <= 1100 THEN
             v_id_exame := arr_exames[(i % ARRAY_LENGTH(arr_exames, 1)) + 1];
             INSERT INTO ATENDIMENTO_EXAME (id_atendimento, id_exame, situacao, resultados)
@@ -571,7 +571,7 @@ BEGIN
             ON CONFLICT DO NOTHING;
         END IF;
 
-        -- Asociar cirugía a ~400 atenciones
+        -- Associar cirurgia a cerca de 400 atendimentos
         IF i <= 400 THEN
             v_id_cirurgia := arr_cirurgias[(i % ARRAY_LENGTH(arr_cirurgias, 1)) + 1];
             INSERT INTO ATENDIMENTO_CIRURGIA (id_atendimento, id_cirurgia, situacao, resultados)
@@ -586,7 +586,7 @@ BEGIN
     END LOOP;
 
     -- ========================================================================
-    -- 11. CAMPAÑAS (40) Y ACCIONES DE CONCIENTIZACIÓN (120)
+    -- 11. CAMPANHAS (40) E AÇÕES DE CONSCIENTIZAÇÃO (120)
     -- ========================================================================
     FOR i IN 1..40 LOOP
         v_idx := (i % 12) + 1;
@@ -603,13 +603,13 @@ BEGIN
             CASE (i % 4) WHEN 0 THEN 'Adoção' WHEN 1 THEN 'Castração' WHEN 2 THEN 'Vacinação' ELSE 'Educativa' END,
             DATE '2025-02-01' + (i * 15) * INTERVAL '1 day',
             'Parque / Praça Comunitária - ' || v_bairros[v_idx],
-            4 + (i % 6), -- Duración en horas (> 0)
+            4 + (i % 6), -- Duração em horas (> 0)
             'Ação comunitária integrada para promoção do bem-estar animal e prevenção ao abandono.',
             v_cpf_agente
         )
         RETURNING id_campanha INTO v_id_campanha;
 
-        -- 3 acciones de concientización por campaña = 120 acciones
+        -- 3 ações de conscientização por campanha = 120 ações
         FOR j IN 1..3 LOOP
             INSERT INTO ACAO_CONSCIENTIZACAO (
                 objetivo, publico_alvo, resultados, situacao, qtd_participantes, id_campanha
@@ -632,11 +632,11 @@ BEGIN
         END LOOP;
     END LOOP;
 
-    RAISE NOTICE 'Población completada con éxito para las 28 tablas de Vira-Amigo.';
+    RAISE NOTICE 'Carga concluída com sucesso para as 28 tabelas do Vira-Amigo.';
 END $$;
 
 -- ============================================================================
--- VERIFICACIÓN DE VOLUMEN DE DATOS POR TABLA (28 TABLAS)
+-- VERIFICAÇÃO DO VOLUME DE DADOS POR TABELA (28 TABELAS)
 -- ============================================================================
 SELECT table_name AS tabela,
        (xpath('/row/cnt/text()', xml_count))[1]::TEXT::INT AS total_registros
